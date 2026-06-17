@@ -18,8 +18,7 @@ python generate_ppt.py
 | `SKILL.md` | 技能定义与完整文档 |
 | `generate_ppt.py` | PPT 生成脚本（修改配置→运行→输出） |
 | `南京信息工程大学ppt模版.pptx` | 官方模板（只读，勿改） |
-| `test_10_sections.py` | 10 章节测试脚本 |
-| `test_limits.py` | 极限字数测试脚本（25 页） |
+
 
 ## 版式
 
