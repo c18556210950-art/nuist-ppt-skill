@@ -5,11 +5,29 @@ description: "生成南京信息工程大学 (NUIST) 官方风格的演示文稿
 
 # 南京信息工程大学 PPT 生成器
 
-## ⚠️ 重要规则
+## 重要规则
 
 - **skill 文件夹内的文件是只读模板，禁止修改**
 - **在工作文件夹（用户当前目录）生成 Python 脚本和 PPTX 输出**
 - 模板路径在生成的脚本中硬编码为 skill 文件夹内的绝对路径
+
+### 文字长度限制
+
+模板占位符有固定宽度，文字过长会强制换行破坏排版：
+
+| 版式 | 字段 | 建议最大字数 |
+|------|------|-------------|
+| 封面 | 标题 | 15 字 |
+| 封面 | 副标题 | 15 字 |
+| 目录1 | 每项目录 | 15 字 |
+| 节标题 | 标题 | 12 字 |
+| 节标题 | 副标题 | 30 字符（英文） |
+| 标题和内容 | 标题 | 20 字 |
+| 标题和内容 | 每条要点 | 35 字 |
+
+**三段式（版式8）禁止使用**：三列太窄，中文必换行。需要对比时用多张「标题和内容」页代替。
+
+---
 
 ## 工作流程
 
@@ -21,7 +39,7 @@ description: "生成南京信息工程大学 (NUIST) 官方风格的演示文稿
 
 ## 模板信息
 
-模板位置：`c:\Users\PC\.claude\skills\ppt\南京信息工程大学ppt模版.pptx`（16:9 宽屏）
+模板位置：与脚本同目录的 `南京信息工程大学ppt模版.pptx`（16:9 宽屏）
 
 ### 配色
 
@@ -56,10 +74,25 @@ description: "生成南京信息工程大学 (NUIST) 官方风格的演示文稿
 | 5 | 节标题 | 章节分隔 | `节标题` |
 | 6 | 标题和内容 | 标准内容页 | `标题和内容` |
 | 7 | 仅标题 | 自由排版 | `仅标题` |
-| 8 | 三段式 | 三列并排 | `三段式` |
+| 8 | ~~三段式~~ | 三列并排（禁用） | — |
 | 9 | 图文对比 | 左图右文 | `图文对比` |
 | 10 | 空白 | 完全自定义 | `空白` |
 | 11 | 结尾幻灯片 | 致谢/结束 | `结尾幻灯片` |
+
+---
+
+## 内容→版式映射
+
+| 内容类型 | 推荐版式 |
+|----------|----------|
+| 封面 | 版式1「标题幻灯片」 |
+| 目录 | 版式2「目录1」 |
+| 章节过渡 | 版式5「节标题」 |
+| 正文内容 | 版式6「标题和内容」 |
+| 图文配合 | 版式9「图文对比」 |
+| 个人/团队 | 版式4「自我介绍」 |
+| 自定义布局 | 版式7「仅标题」或版式10「空白」 |
+| 结尾致谢 | 版式11「结尾幻灯片」 |
 
 ---
 
@@ -74,6 +107,7 @@ description: "生成南京信息工程大学 (NUIST) 官方风格的演示文稿
 依赖: pip install python-pptx
 """
 from pptx import Presentation
+from pptx.enum.text import MSO_AUTO_SIZE
 import os
 
 # ═══ 配置区 ═══
@@ -106,7 +140,7 @@ CLOSING = {
 
 # ═══ 模板路径（指向 skill 文件夹，不要改） ═══
 
-TEMPLATE = r"c:\Users\PC\.claude\skills\ppt\南京信息工程大学ppt模版.pptx"
+TEMPLATE = os.path.join(os.path.dirname(__file__), "南京信息工程大学ppt模版.pptx")
 
 # ═══ 占位符类型 ═══
 
@@ -154,8 +188,10 @@ def remove_template_slides(prs):
 
 def add_cover(prs):
     slide = prs.slides.add_slide(find_layout(prs, "标题幻灯片"))
-    fill_ph(slide, CENTER_TITLE, COVER["title"])
-    fill_ph(slide, SUBTITLE, COVER["subtitle"])
+    ph = fill_ph(slide, CENTER_TITLE, COVER["title"])
+    if ph: ph.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+    ph = fill_ph(slide, SUBTITLE, COVER["subtitle"])
+    if ph: ph.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
     for ph in slide.placeholders:
         if ph.placeholder_format.type == BODY:
             if ph.placeholder_format.idx == 17:
@@ -168,18 +204,31 @@ def add_toc(prs):
     slide = prs.slides.add_slide(find_layout(prs, "目录1"))
     ph = get_body_ph(slide)
     if ph:
+        ph.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
         set_bullets(ph, TOC_ITEMS)
     return slide
 
 def add_section(prs, num, title, subtitle):
     slide = prs.slides.add_slide(find_layout(prs, "节标题"))
-    fill_ph(slide, TITLE, title)
+    ph = fill_ph(slide, TITLE, title)
+    if ph: ph.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
     for ph in slide.placeholders:
         if ph.placeholder_format.type == BODY:
             if ph.placeholder_format.idx == 13:
                 ph.text = num
+                # 两位数以上：拉宽文本框并向左移，避免换行
+                if len(num) >= 2:
+                    orig_top = ph.top
+                    orig_height = ph.height
+                    ph.width = int(ph.width * 2.0)
+                    ph.left -= 1651000
+                    ph.top = orig_top
+                    ph.height = orig_height
+                    for p in ph.text_frame.paragraphs:
+                        p.alignment = 2  # PP_ALIGN.RIGHT
             elif ph.placeholder_format.idx == 1:
                 ph.text = subtitle
+                ph.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
     return slide
 
 def add_content(prs, title, bullets):
@@ -239,7 +288,7 @@ if __name__ == "__main__":
 
 | 要点 | 说明 |
 |------|------|
-| 模板路径 | 硬编码为 `c:\Users\PC\.claude\skills\ppt\南京信息工程大学ppt模版.pptx` |
+| 模板路径 | `os.path.join(os.path.dirname(__file__), "南京信息工程大学ppt模版.pptx")` |
 | 占位符 type | TITLE=1, BODY=2, CENTER_TITLE=3, SUBTITLE=4, OBJECT=7 |
 | 封面/结尾标题 | 用 CENTER_TITLE (3) |
 | 内容页/节标题标题 | 用 TITLE (1) |
@@ -248,15 +297,8 @@ if __name__ == "__main__":
 | 封面/结尾学生信息 | BODY idx=17 |
 | 封面/结尾导师信息 | BODY idx=18 |
 | 项目符号 | 用 `tf.add_paragraph()` 逐条添加，不要设 `ph.text` |
-
----
-
-## 设计原则
-
-1. **多样化版式** — 至少混用 3-4 种版式
-2. **每页有视觉元素** — 图片、图表或色块，避免纯文字
-3. **校徽不删** — 模板内嵌校徽保留不动
-4. **不要标题下划线** — 用留白代替
+| 字数控制 | 见上方「文字长度限制」表 |
+| 三段式 | 禁止使用 |
 
 ---
 

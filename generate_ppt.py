@@ -11,8 +11,7 @@
 """
 
 from pptx import Presentation
-from pptx.util import Inches, Pt
-from pptx.dml.color import RGBColor
+from pptx.enum.text import MSO_AUTO_SIZE
 import os
 
 # ═══════════════════════════════════════════════════════
@@ -142,8 +141,10 @@ def remove_template_slides(prs):
 
 def add_cover(prs):
     slide = prs.slides.add_slide(find_layout(prs, "标题幻灯片"))
-    fill_ph(slide, CENTER_TITLE, COVER["title"])
-    fill_ph(slide, SUBTITLE, COVER["subtitle"])
+    ph = fill_ph(slide, CENTER_TITLE, COVER["title"])
+    if ph: ph.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+    ph = fill_ph(slide, SUBTITLE, COVER["subtitle"])
+    if ph: ph.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
     for ph in slide.placeholders:
         if ph.placeholder_format.type == BODY:
             if ph.placeholder_format.idx == 17:
@@ -157,19 +158,31 @@ def add_toc(prs):
     slide = prs.slides.add_slide(find_layout(prs, "目录1"))
     ph = get_body_ph(slide)
     if ph:
+        ph.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
         set_bullets(ph, TOC_ITEMS)
     return slide
 
 
 def add_section(prs, num, title, subtitle):
     slide = prs.slides.add_slide(find_layout(prs, "节标题"))
-    fill_ph(slide, TITLE, title)
+    ph = fill_ph(slide, TITLE, title)
+    if ph: ph.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
     for ph in slide.placeholders:
         if ph.placeholder_format.type == BODY:
             if ph.placeholder_format.idx == 13:
                 ph.text = num
+                if len(num) >= 2:
+                    orig_top = ph.top
+                    orig_height = ph.height
+                    ph.width = int(ph.width * 2.0)
+                    ph.left -= 1651000
+                    ph.top = orig_top
+                    ph.height = orig_height
+                    for p in ph.text_frame.paragraphs:
+                        p.alignment = 2  # PP_ALIGN.RIGHT
             elif ph.placeholder_format.idx == 1:
                 ph.text = subtitle
+                ph.text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
     return slide
 
 
